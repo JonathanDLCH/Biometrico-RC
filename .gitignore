@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment and secrets
+.env
+.env.*
+*.env
+secrets.json
+
+# Logs
+logs/
+*.log
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.coverage.*
+
+# IDE / editor
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Project-specific generated/data files
+data/raw/
+data/processed/
+*.csv
+*.xlsx
+*.xls
+*.parquet
+*.jsonl
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
