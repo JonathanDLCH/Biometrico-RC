@@ -58,7 +58,7 @@
     "starttime": "",
     "endtime": "",
     "photourl": "/photos/LF00000024.jpg",
-    "email": "contabilidad.finanzas@realcity.mx"
+    "userprofile": "contabilidad.finanzas@realcity.mx"
   },
   {
     "id": 33,
@@ -223,7 +223,7 @@
   {
     "id": 52,
     "name": "Condado Félix Alejandro",
-    "department": "",
+    "department": "STAFF",
     "shift": 1,
     "admin": 1,
     "fingerprint": 0,
@@ -239,7 +239,7 @@
     "starttime": "",
     "endtime": "",
     "photourl": "/photos/LF00000052.jpg",
-    "email": "capitalhumano@rcmexico.net"
+    "userprofile": "capitalhumano@rcmexico.net"
   },
   {
     "id": 55,
@@ -280,7 +280,7 @@
     "starttime": "",
     "endtime": "",
     "photourl": "/photos/LF00000058.jpg",
-    "email": "gerencia.operativa@realcity.mx"
+    "userprofile": "gerencia.operativa@realcity.mx"
   },
   {
     "id": 60,
@@ -321,7 +321,7 @@
     "starttime": "",
     "endtime": "",
     "photourl": "/photos/LF00000086.jpg",
-    "email": "it@realcity.mx"
+    "userprofile": "it@realcity.mx"
   },
   {
     "id": 97,
@@ -342,7 +342,7 @@
     "starttime": "",
     "endtime": "",
     "photourl": "/photos/LF00000097.jpg",
-    "email": "jose.rafael@realcity.mx"
+    "userprofile": "jose.rafael@realcity.mx"
   },
   {
     "id": 168,

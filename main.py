@@ -82,7 +82,7 @@ def send_emails_to_employees_and_rh(df_all, from_date, to_date, resumen_global):
     for employee in employees:
         enrollid = employee["id"]
         name = employee["name"]
-        email = employee.get("email", "").strip()
+        email = employee.get("userprofile", "").strip()
         
         if not email:
             logging.info(f"No hay email para {name}, omitiendo envío individual")
