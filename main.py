@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
 Programa principal para gestión de asistencias biométricas.
+Previos: Obtener usuarios registrados en el dispositivo
 Flujo: Obtener registros → Procesar → Generar reportes → Enviar emails
 """
 
@@ -9,7 +10,7 @@ import logging
 import pandas as pd
 from datetime import datetime, date
 from calendar import monthrange
-from src.api_client import get_attendance_logs
+from src.api_client import get_attendance_logs, sync_employees_from_api
 from src.data_processor import AttendanceProcessor
 from src.email_sender import send_attendance_reports, send_general_report_to_rh
 from config.settings import LOG_FILE, HORA_ENTRADA, HORA_SALIDA, HORA_SALIDA_SABADO, LIMITE_RETARDO_MINUTOS, EMAIL_RH
@@ -49,9 +50,10 @@ def get_biweekly_period():
     return from_date.strftime("%Y-%m-%d"), to_date.strftime("%Y-%m-%d")
 
 def load_employees():
-    """Carga la lista de empleados desde el archivo JSON."""
-    with open("config/employees.json", "r", encoding="utf-8") as f:
-        employees = json.load(f)
+    """Carga la lista de empleados sincronizando primero con la API biométrica."""
+    employees = sync_employees_from_api("config/employees.json")
+    if not employees:
+        return []
     return employees
 
 def send_emails_to_employees_and_rh(df_all, from_date, to_date, resumen_global):

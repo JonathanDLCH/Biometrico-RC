@@ -5,6 +5,7 @@ Este proyecto automatiza la gestión de asistencias laborales usando un biométr
 ## Flujo del Programa
 
 1. **Obtener Registros**: Realiza peticiones HTTP a la API del biométrico.
+1.5 **Obtener Usuarios**: Si no existen usuarios se revisan los registros del biometrico.
 2. **Procesar Datos**: Analiza registros quincenalmente, validando entradas/salidas, retardos y horas extra.
 3. **Generar Reportes**: Crea resúmenes en CSV y JSON.
 4. **Automatización**: (próximo paso) Envío automático de reportes por email.
