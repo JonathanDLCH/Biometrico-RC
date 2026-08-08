@@ -13,6 +13,10 @@ CREATE TABLE biometricos (
     ultima_sincronizacion DATETIME
 );
 
+-- Template para insertar un biometrico
+-- INSERT INTO biometricos (ip, sn, modelo, estado, usuario, contrasena, ubicacion, ultima_sincronizacion)
+-- VALUES ('192.168.1.10', 'SN123456', 'ModeloX', 1, 'admin', 'password123', 'Oficina Principal', '2026-08-08 09:00:00');
+
 CREATE TABLE empleados (
     id_empleado INT(3) UNSIGNED NOT NULL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
