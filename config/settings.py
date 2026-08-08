@@ -19,6 +19,18 @@ API_HEADERS = {
 
 # Otros
 LOG_FILE = "logs/biometrico.log"
+# Base de datos MySQL/MariaDB
+DATABASE_URL = os.getenv("DATABASE_URL")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
+DB_PORT = os.getenv("DB_PORT", "3306")
+DB_NAME = os.getenv("DB_NAME")
+
+if not DATABASE_URL and DB_USER and DB_PASSWORD and DB_NAME:
+    DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
+
+SQLALCHEMY_ECHO = os.getenv("SQLALCHEMY_ECHO", "False").lower() in ("1", "true", "yes")
 
 # Configuración de Email
 EMAIL_USER = os.getenv("EMAIL_USER", "tuemail@gmail.com")  # Usuario del email remitente

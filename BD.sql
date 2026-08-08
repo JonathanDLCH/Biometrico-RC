@@ -1,4 +1,4 @@
-/*CREATE DATABASE BiometricosDBRC;
+/*CREATE DATABASE BiometricosDBRC; u224039572_BiometricosRCM
 USE BiometricosDBRC;
 */
 CREATE TABLE biometricos (

@@ -13,6 +13,12 @@ from calendar import monthrange
 from src.api_client import get_attendance_logs, sync_employees_from_api
 from src.data_processor import AttendanceProcessor
 from src.email_sender import send_attendance_reports, send_general_report_to_rh
+from src.db import SessionLocal, init_db
+from src.repository import (
+    bulk_insert_attendance_logs,
+    create_or_update_employee,
+    get_attendance_records_for_employee,
+)
 from config.settings import LOG_FILE, HORA_ENTRADA, HORA_SALIDA, HORA_SALIDA_SABADO, LIMITE_RETARDO_MINUTOS, EMAIL_RH
 
 # Configurar logging
@@ -122,32 +128,53 @@ def process_all_employees(from_date, to_date):
         limite_retardo_min=LIMITE_RETARDO_MINUTOS
     )
     
+    with SessionLocal() as session:
+        for employee in employees:
+            created = create_or_update_employee(session, employee)
+            if not created:
+                logging.warning(f"Empleado inválido o sin ID: {employee}")
+                continue
+        session.commit()
+
     all_results = []
-    
-    for employee in employees:
-        enrollid = employee["id"]
-        name = employee["name"]
-        
-        logging.info(f"Procesando empleado: {name} (ID: {enrollid})")
-        
-        # Obtener registros
-        records = get_attendance_logs(enrollid, from_date, to_date)
-        
-        if not records:
-            logging.warning(f"No hay registros para {name}")
-            continue
-        
-        # Procesar registros
-        df_employee = processor.procesar_registros(records)
-        
-        if df_employee.empty:
-            logging.warning(f"No se pudieron procesar registros para {name}")
-            continue
-        
-        # Agregar nombre del empleado
-        df_employee["employee_name"] = name
-        
-        all_results.append(df_employee)
+    with SessionLocal() as session:
+        for employee in employees:
+            enrollid = employee["id"]
+            name = employee["name"]
+            logging.info(f"Procesando empleado: {name} (ID: {enrollid})")
+
+            records = get_attendance_logs(enrollid, from_date, to_date)
+            if not records:
+                logging.warning(f"No hay registros para {name}")
+                continue
+
+            inserted = bulk_insert_attendance_logs(session, enrollid, records)
+            if inserted:
+                session.commit()
+                logging.info(f"Insertados {inserted} registros nuevos para empleado {enrollid}")
+
+            db_records = get_attendance_records_for_employee(session, enrollid, from_date, to_date)
+            if not db_records:
+                logging.warning(f"No se encontraron registros en DB para {name}")
+                continue
+
+            records_to_process = [
+                {
+                    "enrollid": rec.id_empleado,
+                    "name": name,
+                    "time": rec.register_time.strftime("%Y-%m-%d %H:%M:%S"),
+                }
+                for rec in db_records
+            ]
+
+            df_employee = processor.procesar_registros(records_to_process)
+
+            if df_employee.empty:
+                logging.warning(f"No se pudieron procesar registros para {name}")
+                continue
+
+            df_employee["employee_name"] = name
+            all_results.append(df_employee)
     
     if not all_results:
         return pd.DataFrame()

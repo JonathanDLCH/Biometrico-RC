@@ -47,3 +47,6 @@ data/processed/
 build/
 dist/
 *.egg-info/
+
+#Employees data
+/config/employees.json
