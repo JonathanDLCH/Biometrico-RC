@@ -3,7 +3,18 @@ from datetime import datetime
 
 from sqlalchemy import select
 
-from src.models import AttendanceRecord, Employee
+from src.models import AttendanceRecord, BiometricDevice, Employee
+
+
+def normalize_biometric_data(device_data):
+    return {
+        "ip": device_data.get("ip") or device_data.get("host") or device_data.get("address"),
+        "sn": device_data.get("sn") or device_data.get("serial") or device_data.get("Serial"),
+        "modelo": device_data.get("model") or device_data.get("modelo") or "UNKNOWN",
+        "estado": device_data.get("estado") if isinstance(device_data.get("estado"), bool) else True,
+        "usuario": device_data.get("usuario") or device_data.get("user") or None,
+        "contrasena": device_data.get("contrasena") or device_data.get("password") or "unknown",
+    }
 
 
 def normalize_employee_data(employee_data):
@@ -22,6 +33,25 @@ def normalize_employee_data(employee_data):
     }
 
 
+def get_all_biometric_devices(session):
+    statement = select(BiometricDevice).order_by(BiometricDevice.id_biometrico)
+    return session.scalars(statement).all()
+
+
+def get_biometric_by_sn(session, sn):
+    if not sn:
+        return None
+    statement = select(BiometricDevice).where(BiometricDevice.sn == sn)
+    return session.scalars(statement).first()
+
+
+def get_biometric_by_ip(session, ip):
+    if not ip:
+        return None
+    statement = select(BiometricDevice).where(BiometricDevice.ip == ip)
+    return session.scalars(statement).first()
+
+
 def get_all_employees(session):
     statement = select(Employee).order_by(Employee.nombre)
     return session.scalars(statement).all()
@@ -36,6 +66,31 @@ def get_all_employees_dict(session):
         }
         for employee in get_all_employees(session)
     ]
+
+
+def create_or_update_biometric(session, device_data):
+    normalized = normalize_biometric_data(device_data)
+    if normalized["sn"] is None:
+        return None
+
+    device = get_biometric_by_sn(session, normalized["sn"])
+    if device is None and normalized["ip"]:
+        device = get_biometric_by_ip(session, normalized["ip"])
+
+    if device is None:
+        device = BiometricDevice(sn=normalized["sn"], ip=normalized["ip"] or "unknown")
+
+    if normalized["ip"]:
+        device.ip = normalized["ip"]
+    if normalized["modelo"]:
+        device.modelo = normalized["modelo"]
+    if normalized["usuario"]:
+        device.usuario = normalized["usuario"]
+    if normalized["contrasena"]:
+        device.contrasena = normalized["contrasena"]
+
+    session.add(device)
+    return device
 
 
 def create_or_update_employee(session, employee_data):

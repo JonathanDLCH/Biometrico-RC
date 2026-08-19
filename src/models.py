@@ -21,7 +21,7 @@ class BiometricDevice(Base):
     __tablename__ = "biometricos"
 
     id_biometrico = Column(Integer, primary_key=True, autoincrement=True)
-    ip = Column(String(20), nullable=False)
+    ip = Column(String(100), nullable=False)
     sn = Column(String(50), nullable=False)
     modelo = Column(String(50), nullable=False)
     estado = Column(Boolean, nullable=False, default=True)
@@ -29,6 +29,8 @@ class BiometricDevice(Base):
     contrasena = Column(String(30), nullable=False)
     ubicacion = Column(String(100), nullable=True)
     ultima_sincronizacion = Column(DateTime, nullable=True)
+
+    registros = relationship("AttendanceRecord", back_populates="biometrico")
 
 
 class AttendanceRecord(Base):
@@ -42,6 +44,7 @@ class AttendanceRecord(Base):
     raw_payload = Column(String(500), nullable=True)
 
     empleado = relationship("Employee", back_populates="registros")
+    biometrico = relationship("BiometricDevice", back_populates="registros")
 
     __table_args__ = (
         UniqueConstraint("id_empleado", "register_time", name="uq_empleado_registro_fecha"),

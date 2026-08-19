@@ -36,6 +36,37 @@ def get_user_list():
         return None
 
 
+def get_device_info():
+    """
+    Obtiene información del biométrico actual.
+
+    :return: Dict con datos del dispositivo o None si hay error
+    """
+    payload = {
+        "password": API_PASSWORD,
+        "cmd": "reg"
+    }
+
+    try:
+        response = requests.post(API_URL, json=payload, headers=API_HEADERS, timeout=30)
+        response.raise_for_status()
+        data = response.json()
+
+        if data.get("result"):
+            record = data.get("record")
+            if isinstance(record, list) and record:
+                record = record[0]
+            if isinstance(record, dict):
+                logging.info("Obtenida información del dispositivo biométrico actual")
+                return record
+
+        logging.error(f"Error en respuesta API de dispositivo: {data}")
+        return None
+    except requests.RequestException as e:
+        logging.error(f"Error en petición API de dispositivo: {e}")
+        return None
+
+
 def sync_employees_from_api(employees_file_path=None):
     """
     Sincroniza la lista de empleados con la API biométrica.

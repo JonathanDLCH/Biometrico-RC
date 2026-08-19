@@ -10,12 +10,13 @@ import logging
 import pandas as pd
 from datetime import datetime, date
 from calendar import monthrange
-from src.api_client import get_attendance_logs, sync_employees_from_api
+from src.api_client import get_attendance_logs, get_device_info, sync_employees_from_api
 from src.data_processor import AttendanceProcessor
 from src.email_sender import send_attendance_reports, send_general_report_to_rh
 from src.db import SessionLocal, init_db
 from src.repository import (
     bulk_insert_attendance_logs,
+    create_or_update_biometric,
     create_or_update_employee,
     get_attendance_records_for_employee,
 )
@@ -129,6 +130,20 @@ def process_all_employees(from_date, to_date):
     )
     
     with SessionLocal() as session:
+        device_info = get_device_info()
+        if device_info is None:
+            logging.error("No se pudo obtener la información del biométrico actual. No se procesarán registros.")
+            return pd.DataFrame()
+
+        device = create_or_update_biometric(session, device_info)
+        if device is None:
+            logging.error("No se pudo identificar ni guardar el biométrico actual en la base de datos.")
+            return pd.DataFrame()
+
+        session.commit()
+        biometric_id = device.id_biometrico
+        logging.info(f"Biométrico actual identificado: id_biometrico={biometric_id}, sn={device.sn}, ip={device.ip}")
+
         for employee in employees:
             created = create_or_update_employee(session, employee)
             if not created:
@@ -148,10 +163,10 @@ def process_all_employees(from_date, to_date):
                 logging.warning(f"No hay registros para {name}")
                 continue
 
-            inserted = bulk_insert_attendance_logs(session, enrollid, records)
+            inserted = bulk_insert_attendance_logs(session, enrollid, records, biometric_id=biometric_id)
             if inserted:
                 session.commit()
-                logging.info(f"Insertados {inserted} registros nuevos para empleado {enrollid}")
+                logging.info(f"Insertados {inserted} registros nuevos para empleado {enrollid} con biometrico {biometric_id}")
 
             db_records = get_attendance_records_for_employee(session, enrollid, from_date, to_date)
             if not db_records:
