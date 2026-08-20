@@ -46,6 +46,33 @@ Tambien se admiten `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` y `DB_NAME` pa
 
 El proceso devuelve `0` si termina correctamente y `1` si falla despues de registrar y notificar el error.
 
+## Ejecucion con Docker
+
+Construye la imagen en la maquina que tenga el codigo:
+
+```bash
+docker build -t biometric-sync:latest .
+```
+
+Como el programa realiza una sincronizacion y termina, ejecutalo cuando corresponda mediante cron, Task Scheduler o el programador de tareas de la otra maquina:
+
+```bash
+docker run --rm --env-file .env \
+	-v biometric-config:/app/config \
+	-v biometric-logs:/app/logs \
+	biometric-sync:latest
+```
+
+Los volumenes conservan `config/employees.json` y los logs entre ejecuciones. La maquina destino solo necesita Docker y una copia de la imagen. Puedes exportarla e importarla sin un registro:
+
+```bash
+docker save biometric-sync:latest | gzip > biometric-sync.tar.gz
+# En la otra maquina:
+gunzip -c biometric-sync.tar.gz | docker load
+```
+
+El archivo `.env` debe copiarse por separado a la maquina destino; no se incluye en la imagen.
+
 ## Pruebas
 
 ```bash
