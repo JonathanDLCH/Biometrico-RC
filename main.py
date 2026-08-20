@@ -1,330 +1,133 @@
 #!/usr/bin/env python3
-"""
-Programa principal para gestión de asistencias biométricas.
-Previos: Obtener usuarios registrados en el dispositivo
-Flujo: Obtener registros → Procesar → Generar reportes → Enviar emails
-"""
+"""Servicio diario para sincronizar un biometrico con la base de datos."""
 
-import json
 import logging
-import pandas as pd
-from datetime import datetime, date
-from calendar import monthrange
+from datetime import datetime, timedelta
+
+from config.settings import INITIAL_SYNC_DAYS, LOG_FILE, SUPPORT_EMAILS
 from src.api_client import get_attendance_logs, get_device_info, sync_employees_from_api
-from src.data_processor import AttendanceProcessor
-from src.email_sender import send_attendance_reports, send_general_report_to_rh
 from src.db import SessionLocal, init_db
+from src.email_sender import send_support_error
 from src.repository import (
     bulk_insert_attendance_logs,
     create_or_update_biometric,
     create_or_update_employee,
-    get_attendance_records_for_employee,
+    get_last_sync,
+    mark_biometric_synced,
 )
-from config.settings import LOG_FILE, HORA_ENTRADA, HORA_SALIDA, HORA_SALIDA_SABADO, LIMITE_RETARDO_MINUTOS, EMAIL_RH
 
-# Configurar logging
+
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(LOG_FILE),
-        logging.StreamHandler()
-    ]
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[logging.FileHandler(LOG_FILE), logging.StreamHandler()],
 )
+logger = logging.getLogger(__name__)
 
-def get_biweekly_period():
-    """
-    Calcula el período quincenal (1-15 o 16-último día del mes).
-    
-    :return: Tupla (from_date, to_date) en formato YYYY-MM-DD
-    """
-    today = date.today()
-    year = today.year
-    month = today.month
-    day = today.day
-    
-    # Determinar si estamos en primer o segundo quincena
-    if day <= 15:
-        # Primera quincena: del 1 al 15
-        from_date = date(year, month, 1)
-        to_date = date(year, month, 15)
-    else:
-        # Segunda quincena: del 16 al último día del mes
-        from_date = date(year, month, 16)
-        last_day = monthrange(year, month)[1]
-        to_date = date(year, month, last_day)
-    
-    return from_date.strftime("%Y-%m-%d"), to_date.strftime("%Y-%m-%d")
 
-def load_employees():
-    """Carga la lista de empleados sincronizando primero con la API biométrica."""
-    employees = sync_employees_from_api("config/employees.json")
-    if not employees:
-        return []
-    return employees
+def _date_string(value):
+    return value.strftime("%Y-%m-%d")
 
-def send_emails_to_employees_and_rh(df_all, from_date, to_date, resumen_global):
-    """
-    Envía reportes por email a empleados y RH.
-    
-    :param df_all: DataFrame con todos los análisis
-    :param from_date: Fecha inicio
-    :param to_date: Fecha fin
-    :param resumen_global: Estadísticas globales
-    """
-    employees = load_employees()
-    periodo = f"{from_date} al {to_date}"
-    
-    # Archivos de reporte general para RH
-    general_reports = [
-        "data/processed/reporte_general_asistencias.csv",
-        "data/processed/reporte_horas_trabajadas.csv",
-        "data/processed/resumen_global.json"
-    ]
-    
-    # Enviar reporte general a RH
-    send_general_report_to_rh(EMAIL_RH, general_reports, periodo, resumen_global)
-    
-    # Enviar reportes individuales a empleados (si tienen email)
+
+def _sync_start(last_sync, now):
+    if last_sync is None:
+        return now - timedelta(days=INITIAL_SYNC_DAYS)
+    return last_sync
+
+
+def identify_biometric(session, device_info):
+    """Relaciona el dispositivo local con su registro remoto o lo crea."""
+    if not device_info:
+        raise RuntimeError("La API no devolvio informacion del biometrico")
+
+    device = create_or_update_biometric(session, device_info)
+    if device is None:
+        raise RuntimeError("La informacion del biometrico no contiene numero de serie")
+    session.flush()
+    logger.info("Biometrico identificado: id=%s, sn=%s", device.id_biometrico, device.sn)
+    return device
+
+
+def sync_employees(session, employees):
+    """Inserta o actualiza empleados usando su ID como clave unica."""
+    valid_employees = []
+    for employee in employees or []:
+        saved = create_or_update_employee(session, employee)
+        if saved is None:
+            logger.warning("Empleado ignorado por no tener un ID valido: %s", employee)
+            continue
+        valid_employees.append(employee)
+    session.flush()
+    return valid_employees
+
+
+def fetch_and_store_attendance(session, employees, biometric_id, start, end):
+    """Obtiene e inserta registros; None de la API se considera un error recuperable."""
+    inserted = 0
     for employee in employees:
-        enrollid = employee["id"]
-        name = employee["name"]
-        email = employee.get("userprofile", "").strip()
-        
-        if not email:
-            logging.info(f"No hay email para {name}, omitiendo envío individual")
-            continue
-        
-        # Filtrar datos del empleado
-        df_employee = df_all[df_all["enrollid"] == enrollid]
-        if df_employee.empty:
-            logging.info(f"No hay datos para {name}, omitiendo envío")
-            continue
-        
-        # Crear reporte individual (CSV con datos del empleado)
-        individual_report = f"data/processed/reporte_{enrollid}_{name.replace(' ', '_')}.csv"
-        df_employee.to_csv(individual_report, index=False)
-        
-        # Enviar email al empleado
-        send_attendance_reports(
-            employee_email=email,
-            rh_emails=None,  # No enviar a RH en individuales
-            report_files=[individual_report],
-            periodo=periodo
+        employee_id = employee["id"]
+        records = get_attendance_logs(
+            employee_id,
+            _date_string(start),
+            _date_string(end),
         )
+        if records is None:
+            raise RuntimeError(f"No se pudieron obtener registros del empleado {employee_id}")
+        inserted += bulk_insert_attendance_logs(
+            session,
+            employee_id,
+            records,
+            biometric_id=biometric_id,
+        )
+    return inserted
 
-def process_all_employees(from_date, to_date):
-    """
-    Procesa asistencias para todos los empleados activos.
-    
-    :param from_date: Fecha de inicio (YYYY-MM-DD)
-    :param to_date: Fecha de fin (YYYY-MM-DD)
-    :return: DataFrame con análisis de todos los empleados
-    """
-    employees = load_employees()
-    processor = AttendanceProcessor(
-        hora_entrada=HORA_ENTRADA,
-        hora_salida=HORA_SALIDA,
-        hora_salida_sabado=HORA_SALIDA_SABADO,
-        limite_retardo_min=LIMITE_RETARDO_MINUTOS
+
+def run_sync(now=None, session_factory=SessionLocal):
+    """Ejecuta una sincronizacion completa y atomica."""
+    now = now or datetime.now()
+    device_info = get_device_info()
+    employees = sync_employees_from_api()
+
+    with session_factory() as session:
+        try:
+            device = identify_biometric(session, device_info)
+            last_sync = get_last_sync(session, device.id_biometrico)
+            start = _sync_start(last_sync, now)
+            valid_employees = sync_employees(session, employees)
+            inserted = fetch_and_store_attendance(
+                session,
+                valid_employees,
+                device.id_biometrico,
+                start,
+                now,
+            )
+            mark_biometric_synced(session, device.id_biometrico, now)
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+
+    logger.info(
+        "Sincronizacion completada: empleados=%s, registros_nuevos=%s, desde=%s, hasta=%s",
+        len(valid_employees),
+        inserted,
+        start,
+        now,
     )
-    
-    with SessionLocal() as session:
-        device_info = get_device_info()
-        if device_info is None:
-            logging.error("No se pudo obtener la información del biométrico actual. No se procesarán registros.")
-            return pd.DataFrame()
-
-        device = create_or_update_biometric(session, device_info)
-        if device is None:
-            logging.error("No se pudo identificar ni guardar el biométrico actual en la base de datos.")
-            return pd.DataFrame()
-
-        session.commit()
-        biometric_id = device.id_biometrico
-        logging.info(f"Biométrico actual identificado: id_biometrico={biometric_id}, sn={device.sn}, ip={device.ip}")
-
-        for employee in employees:
-            created = create_or_update_employee(session, employee)
-            if not created:
-                logging.warning(f"Empleado inválido o sin ID: {employee}")
-                continue
-        session.commit()
-
-    all_results = []
-    with SessionLocal() as session:
-        for employee in employees:
-            enrollid = employee["id"]
-            name = employee["name"]
-            logging.info(f"Procesando empleado: {name} (ID: {enrollid})")
-
-            records = get_attendance_logs(enrollid, from_date, to_date)
-            if not records:
-                logging.warning(f"No hay registros para {name}")
-                continue
-
-            inserted = bulk_insert_attendance_logs(session, enrollid, records, biometric_id=biometric_id)
-            if inserted:
-                session.commit()
-                logging.info(f"Insertados {inserted} registros nuevos para empleado {enrollid} con biometrico {biometric_id}")
-
-            db_records = get_attendance_records_for_employee(session, enrollid, from_date, to_date)
-            if not db_records:
-                logging.warning(f"No se encontraron registros en DB para {name}")
-                continue
-
-            records_to_process = [
-                {
-                    "enrollid": rec.id_empleado,
-                    "name": name,
-                    "time": rec.register_time.strftime("%Y-%m-%d %H:%M:%S"),
-                }
-                for rec in db_records
-            ]
-
-            df_employee = processor.procesar_registros(records_to_process)
-
-            if df_employee.empty:
-                logging.warning(f"No se pudieron procesar registros para {name}")
-                continue
-
-            df_employee["employee_name"] = name
-            all_results.append(df_employee)
-    
-    if not all_results:
-        return pd.DataFrame()
-    
-    # Combinar todos los resultados
-    df_all = pd.concat(all_results, ignore_index=True)
-    return df_all
-
-def generate_general_report(df_all, from_date, to_date):
-    """
-    Genera reporte general con empleados en filas y fechas en columnas.
-    
-    :param df_all: DataFrame con todos los análisis
-    :param from_date: Fecha inicio
-    :param to_date: Fecha fin
-    """
-    if df_all.empty:
-        logging.warning("No hay datos para generar reporte general")
-        return
-    
-    # Crear tabla pivote: filas = empleados, columnas = fechas, valores = estado
-    pivot_table = df_all.pivot_table(
-        index="employee_name",
-        columns="date",
-        values="estado",
-        aggfunc="first"  # Si hay múltiples, toma el primero
-    ).fillna("Sin registro")
-    
-    # Guardar como CSV
-    pivot_table.to_csv("data/processed/reporte_general_asistencias.csv")
-    
-    # También guardar versión con más detalles (horas trabajadas)
-    pivot_horas = df_all.pivot_table(
-        index="employee_name",
-        columns="date",
-        values="horas_trabajadas",
-        aggfunc="sum"
-    ).fillna(0)
-    
-    pivot_horas.to_csv("data/processed/reporte_horas_trabajadas.csv")
-    
-    logging.info("Reportes generales generados exitosamente")
-    
-    # Mostrar resumen
-    print("\n" + "="*80)
-    print("REPORTE GENERAL DE ASISTENCIAS")
-    print("="*80)
-    print(f"Período: {from_date} al {to_date}")
-    print(f"Empleados procesados: {len(pivot_table)}")
-    print("-"*80)
-    print("Vista previa del reporte de estados:")
-    print(pivot_table.head(10).to_string())
-    print("-"*80)
-    print("Vista previa del reporte de horas:")
-    print(pivot_horas.head(10).to_string())
-    print("="*80 + "\n")
-
-
-def generate_first_last_report(df_all):
-    """Genera un reporte con la hora del primer y último registro de cada empleado."""
-    if df_all.empty:
-        logging.warning("No hay datos para generar el reporte de entradas y salidas")
-        return
-
-    reporte_entradas_salidas = df_all[["employee_name", "date", "hora_entrada", "hora_salida"]].copy()
-    reporte_entradas_salidas = reporte_entradas_salidas.sort_values(["employee_name", "date"])
-    reporte_entradas_salidas.to_csv("data/processed/reporte_entradas_salidas.csv", index=False)
-
-    logging.info("Reporte de primer y último registro generado exitosamente")
+    return {"employees": len(valid_employees), "attendance": inserted}
 
 
 def main():
-    """
-    Ejecuta el pipeline completo para todos los empleados.
-    """
-    # Calcular período quincenal automáticamente
-    #from_date, to_date = "2024-06-01", "2024-06-15"  # Para pruebas manuales   
-    from_date, to_date = get_biweekly_period()
-    
-    logging.info(f"Iniciando procesamiento general del {from_date} al {to_date}")
-    
-    # Paso 1: Procesar todos los empleados
-    logging.info("Paso 1: Procesando todos los empleados...")
-    df_all = process_all_employees(from_date, to_date)
-    
-    if df_all.empty:
-        logging.error("No se obtuvieron datos de ningún empleado")
-        return
-    
-    # Paso 2: Generar reportes generales
-    logging.info("Paso 2: Generando reportes generales...")
-    generate_general_report(df_all, from_date, to_date)
-    
-    # Paso 3: Generar resumen global
-    logging.info("Paso 3: Generando resumen global...")
-    processor = AttendanceProcessor(
-        hora_entrada=HORA_ENTRADA,
-        hora_salida=HORA_SALIDA,
-        hora_salida_sabado=HORA_SALIDA_SABADO,
-        limite_retardo_min=LIMITE_RETARDO_MINUTOS
-    )
-    
-    resumen_global = {
-        "total_empleados": len(df_all["enrollid"].unique()),
-        "total_dias_analizados": len(df_all),
-        "dias_normales": len(df_all[df_all["estado"] == "Normal"]),
-        "dias_retardo": len(df_all[df_all["tiene_retardo"]]),
-        "dias_sin_entrada": len(df_all[df_all["falta_entrada"]]),
-        "dias_sin_salida": len(df_all[df_all["falta_salida"]]),
-        "dias_horas_extra": len(df_all[df_all["tiene_horas_extra"]]),
-        "total_retardo_minutos": df_all["retardo_minutos"].sum(),
-        "total_horas_extra_minutos": df_all["horas_extra_minutos"].sum(),
-        "promedio_horas_diarias": df_all["horas_trabajadas"].mean(),
-    }
-    
-    with open("data/processed/resumen_global.json", "w") as f:
-        json.dump(resumen_global, f, indent=4, default=str)
-    
-    # Mostrar resumen global
-    print("\n" + "="*60)
-    print("RESUMEN GLOBAL")
-    print("="*60)
-    for key, value in resumen_global.items():
-        print(f"{key}: {value}")
-    print("="*60 + "\n")
+    """Punto de entrada diario; los fallos se notifican y quedan listos para reintento."""
+    try:
+        init_db()
+        run_sync()
+    except Exception as error:
+        logger.exception("Fallo en la sincronizacion diaria")
+        send_support_error(SUPPORT_EMAILS, error)
+        return 1
+    return 0
 
-    # Generar reporte de primer y último registro por empleado
-    logging.info("Paso 4: Generando reporte de primer y último registro...")
-    generate_first_last_report(df_all)
-    
-    # Paso 5: Enviar emails
-    logging.info("Paso 5: Enviando reportes por email...")
-    #send_emails_to_employees_and_rh(df_all, from_date, to_date, resumen_global)
-    
-    logging.info("Procesamiento general completado exitosamente.")
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

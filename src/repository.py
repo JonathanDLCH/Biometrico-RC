@@ -52,6 +52,19 @@ def get_biometric_by_ip(session, ip):
     return session.scalars(statement).first()
 
 
+def get_last_sync(session, biometric_id):
+    device = session.get(BiometricDevice, biometric_id)
+    return device.ultima_sincronizacion if device else None
+
+
+def mark_biometric_synced(session, biometric_id, synced_at):
+    device = session.get(BiometricDevice, biometric_id)
+    if device is None:
+        raise ValueError(f"Biométrico no encontrado: {biometric_id}")
+    device.ultima_sincronizacion = synced_at
+    session.add(device)
+
+
 def get_all_employees(session):
     statement = select(Employee).order_by(Employee.nombre)
     return session.scalars(statement).all()
@@ -191,6 +204,7 @@ def bulk_insert_attendance_logs(session, employee_id, records, biometric_id=None
             raw_payload=item["raw_payload"],
         )
         session.add(attendance)
+        existing_times.add(item["register_time"])
         inserted += 1
 
     return inserted

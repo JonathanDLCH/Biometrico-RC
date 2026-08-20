@@ -1,115 +1,55 @@
-# Sistema de Gestión de Asistencias Biométricas
+# Registro-service
 
-Este proyecto automatiza la gestión de asistencias laborales usando un biométrico chino con API local.
+Servicio diario para enviar registros nuevos de un biometrico a la base de datos en la nube.
 
-## Flujo del Programa
+## Flujo
 
-1. **Obtener Registros**: Realiza peticiones HTTP a la API del biométrico.
-1.5 **Obtener Usuarios**: Si no existen usuarios se revisan los registros del biometrico.
-2. **Procesar Datos**: Analiza registros quincenalmente, validando entradas/salidas, retardos y horas extra.
-3. **Generar Reportes**: Crea resúmenes en CSV y JSON.
-4. **Automatización**: (próximo paso) Envío automático de reportes por email.
+1. Identifica el biometrico por `sn` o `ip`; si no existe, lo crea.
+2. Sincroniza empleados por `id_empleado`, insertando nuevos y actualizando los existentes.
+3. Consulta registros desde `ultima_sincronizacion` hasta el momento actual.
+4. Deduplica por `id_empleado` y `register_time` antes de insertar.
+5. Actualiza `ultima_sincronizacion` solamente despues de confirmar toda la transaccion.
+6. Si ocurre un error, hace rollback, registra el stack trace y notifica a soporte.
 
-## Instalación
+El cursor no avanza si falla cualquier paso. La siguiente ejecucion vuelve a intentar el mismo intervalo, por lo que el programa puede ejecutarse diariamente mediante cron, Task Scheduler o un servicio del sistema.
 
-1. Crear entorno virtual:
-   ```bash
-   python3 -m venv venv
-   ```
+## Instalacion
 
-2. Activar entorno:
-   ```bash
-   source venv/bin/activate  # Linux/Mac
-   # o
-   venv\Scripts\activate  # Windows
-   ```
-
-3. Instalar dependencias:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## Configuración
-
-Editar `config/settings.py` para ajustar:
-- Horarios de entrada/salida
-- Límites de retardo y horas extra
-- URL y credenciales del biométrico
-
-Actualizar `config/employees.json` con la lista de empleados activos.
-
-## Uso
-
-Ejecutar el programa principal:
 ```bash
-python main.py
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Esto generará:
-- `data/raw/records.json`: Registros crudos de la API
-- `data/processed/attendance_analysis.csv`: Análisis detallado por día
-- `data/processed/resumen.json`: Resumen estadístico
-- `logs/biometrico.log`: Registro de ejecución
+## Variables de entorno
+
+Configura estas variables en `.env` o en el entorno del proceso. No guardes contrasenas en el repositorio.
+
+```dotenv
+DATABASE_URL=mysql+pymysql://usuario:contrasena@host:3306/base
+BIOMETRIC_API_URL=http://192.168.10.2:80/api
+BIOMETRIC_PASSWORD=contrasena_del_biometrico
+BIOMETRIC_DEVICE_COOKIE=cookie_de_sesion_del_dispositivo
+EMAIL_USER=cuenta_remitente
+EMAIL_PASSWORD=app_password
+SUPPORT_EMAILS=soporte@empresa.com,desarrollo@empresa.com
+INITIAL_SYNC_DAYS=1
+```
+
+Tambien se admiten `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` y `DB_NAME` para construir `DATABASE_URL`.
+
+## Ejecucion
+
+```bash
+.venv/bin/python3 main.py
+```
+
+El proceso devuelve `0` si termina correctamente y `1` si falla despues de registrar y notificar el error.
 
 ## Pruebas
 
-Ejecutar suite de pruebas unitarias:
 ```bash
-python -m unittest tests/test_api_client.py
-python -m unittest tests/test_data_processor.py
+.venv/bin/python3 -m unittest discover -s tests -v
 ```
 
-## Estructura de Carpetas
-
-```
-Biometrico/
-├── main.py                      # Punto de entrada (orquestador)
-├── requirements.txt             # Dependencias Python
-├── .env                         # Variables de entorno
-├── config/
-│   ├── settings.py              # Constantes y configuraciones
-│   └── employees.json           # Lista de empleados
-├── src/
-│   ├── api_client.py            # Cliente API del biométrico
-│   ├── data_processor.py        # Procesamiento y análisis
-│   ├── report_generator.py      # (próximo) Generación de reportes
-│   └── scheduler.py             # (próximo) Automatización y emails
-├── data/
-│   ├── raw/                     # Registros crudos de API
-│   └── processed/               # Datos procesados y reportes
-├── logs/                        # Archivos de registro
-├── tests/                       # Pruebas unitarias
-└── README.md                    # Este archivo
-```
-
-## Configuración de Email
-
-Para el envío automático de reportes:
-
-1. Configura las credenciales en `.env`:
-   ```
-   EMAIL_USER=tuemail@gmail.com
-   EMAIL_PASSWORD=tu_app_password  # Para Gmail, usa app password
-   ```
-
-2. Actualiza emails de RH en `config/settings.py`:
-   ```python
-   EMAIL_RH = ["rh@empresa.com", "admin@empresa.com"]
-   ```
-
-3. Agrega campo `"email"` a cada empleado en `config/employees.json`:
-   ```json
-   {
-     "id": 52,
-     "name": "Condado Félix Alejandro",
-     "email": "felix.condado@empresa.com"
-   }
-   ```
-
-**Nota**: Si un empleado no tiene email, solo se envía a RH.
-
-## Notas
-
-- Los registros del biométrico se obtienen en orden descendente (más reciente primero).
-- La lógica asume que el primer y último registro de un día corresponden a entrada y salida.
-- Los horarios se configuran en `config/settings.py`.
+Las pruebas del servicio cubren identificacion, empleados, obtencion de registros, deduplicacion, commit atomico y rollback.
