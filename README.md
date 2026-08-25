@@ -4,12 +4,13 @@ Servicio diario para enviar registros nuevos de un biometrico a la base de datos
 
 ## Flujo
 
-1. Identifica el biometrico por `sn` o `ip`; si no existe, lo crea.
-2. Sincroniza empleados por `id_empleado`, insertando nuevos y actualizando los existentes.
-3. Consulta registros desde `ultima_sincronizacion` hasta el momento actual.
-4. Deduplica por `id_empleado` y `register_time` antes de insertar.
-5. Actualiza `ultima_sincronizacion` solamente despues de confirmar toda la transaccion.
-6. Si ocurre un error, hace rollback, registra el stack trace y notifica a soporte.
+1. Lee los biométricos configurados en la base de datos e intenta hacer el flujo con cada IP registrada.
+2. Solo acepta una respuesta cuyo número de serie coincida; nunca crea biométricos (evita duplicar información de biométricos).
+3. Sincroniza empleados por `id_empleado`, insertando nuevos y actualizando los existentes.
+4. Consulta registros desde `ultima_sincronizacion` hasta el momento actual.
+5. Revisa por `id_empleado` y `register_time` antes de insertar.
+6. Actualiza `ultima_sincronizacion` solamente despues de confirmar toda la transaccion.
+7. Si ocurre un error, hace rollback, registra el stack trace y notifica a soporte.
 
 El cursor no avanza si falla cualquier paso. La siguiente ejecucion vuelve a intentar el mismo intervalo, por lo que el programa puede ejecutarse diariamente mediante cron, Task Scheduler o un servicio del sistema.
 
@@ -27,8 +28,6 @@ Configura estas variables en `.env` o en el entorno del proceso. No guardes cont
 
 ```dotenv
 DATABASE_URL=mysql+pymysql://usuario:contrasena@host:3306/base
-BIOMETRIC_API_URL=http://192.168.10.2:80/api
-BIOMETRIC_PASSWORD=contrasena_del_biometrico
 BIOMETRIC_DEVICE_COOKIE=cookie_de_sesion_del_dispositivo
 EMAIL_USER=cuenta_remitente
 EMAIL_PASSWORD=app_password
@@ -63,7 +62,7 @@ docker run --rm --env-file .env \
 	biometric-sync:latest
 ```
 
-Los volumenes conservan `config/employees.json` y los logs entre ejecuciones. La maquina destino solo necesita Docker y una copia de la imagen. Puedes exportarla e importarla sin un registro:
+El volumen de logs conserva el historial entre ejecuciones. La maquina destino solo necesita Docker y una copia de la imagen. Puedes exportarla e importarla sin un registro:
 
 ```bash
 docker save biometric-sync:latest | gzip > biometric-sync.tar.gz

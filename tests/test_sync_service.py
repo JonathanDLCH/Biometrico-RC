@@ -30,18 +30,13 @@ class FakeSession:
 class TestSyncService(unittest.TestCase):
     def setUp(self):
         self.now = datetime(2026, 8, 18, 18, 0, 0)
-        self.device = SimpleNamespace(id_biometrico=3, sn="SN-3")
+        self.device = SimpleNamespace(id_biometrico=3, sn="SN-3", ip="10.0.0.3", usuario="admin", contrasena="secret")
         self.employees = [{"id": 10, "name": "Ana"}, {"id": 20, "name": "Luis"}]
         self.session = FakeSession()
 
-    @patch("main.create_or_update_biometric")
-    def test_identify_biometric_creates_or_reuses_device(self, create_device):
-        create_device.return_value = self.device
-
-        result = main.identify_biometric(self.session, {"sn": "SN-3", "ip": "10.0.0.3"})
-
-        self.assertIs(result, self.device)
-        create_device.assert_called_once()
+    def test_identify_biometric_only_accepts_matching_device(self):
+        self.assertTrue(main.identify_biometric(self.device, {"sn": "SN-3"}))
+        self.assertFalse(main.identify_biometric(self.device, {"sn": "SN-OTHER"}))
 
     @patch("main.create_or_update_employee", side_effect=[object(), None])
     def test_sync_employees_only_returns_valid_employees(self, create_employee):
@@ -57,14 +52,18 @@ class TestSyncService(unittest.TestCase):
             self.session,
             [self.employees[0]],
             3,
+            "http://10.0.0.3:80/api",
+            "secret",
+            {},
             datetime(2026, 8, 17),
             self.now,
         )
 
         self.assertEqual(result, 2)
-        get_logs.assert_called_once_with(10, "2026-08-17", "2026-08-18")
+        get_logs.assert_called_once_with(10, "2026-08-17", "2026-08-18", "http://10.0.0.3:80/api", "secret", {})
         insert.assert_called_once()
 
+    @patch("main.get_all_biometric_devices")
     @patch("main.mark_biometric_synced")
     @patch("main.fetch_and_store_attendance", return_value=4)
     @patch("main.sync_employees")
@@ -81,7 +80,9 @@ class TestSyncService(unittest.TestCase):
         sync_employees,
         fetch,
         mark_synced,
+        get_devices,
     ):
+        get_devices.return_value = [self.device]
         get_device_info.return_value = {"sn": "SN-3"}
         sync_from_api.return_value = self.employees
         identify.return_value = self.device
@@ -94,6 +95,7 @@ class TestSyncService(unittest.TestCase):
         self.assertFalse(self.session.rolled_back)
         mark_synced.assert_called_once_with( self.session, 3, self.now)
 
+    @patch("main.get_all_biometric_devices")
     @patch("main.mark_biometric_synced")
     @patch("main.fetch_and_store_attendance", side_effect=RuntimeError("API caída"))
     @patch("main.sync_employees", return_value=[])
@@ -110,8 +112,10 @@ class TestSyncService(unittest.TestCase):
         sync_employees,
         fetch,
         mark_synced,
+        get_devices,
     ):
-        identify.return_value = self.device
+        get_devices.return_value = [self.device]
+        identify.return_value = True
 
         with self.assertRaisesRegex(RuntimeError, "API caída"):
             main.run_sync(self.now, lambda: self.session)

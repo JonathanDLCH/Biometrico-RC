@@ -6,17 +6,6 @@ from sqlalchemy import select
 from src.models import AttendanceRecord, BiometricDevice, Employee
 
 
-def normalize_biometric_data(device_data):
-    return {
-        "ip": device_data.get("ip") or device_data.get("host") or device_data.get("address"),
-        "sn": device_data.get("sn") or device_data.get("serial") or device_data.get("Serial"),
-        "modelo": device_data.get("model") or device_data.get("modelo") or "UNKNOWN",
-        "estado": device_data.get("estado") if isinstance(device_data.get("estado"), bool) else True,
-        "usuario": device_data.get("usuario") or device_data.get("user") or None,
-        "contrasena": device_data.get("contrasena") or device_data.get("password") or "unknown",
-    }
-
-
 def normalize_employee_data(employee_data):
     return {
         "id_empleado": int(employee_data.get("id")) if employee_data.get("id") is not None else None,
@@ -38,20 +27,6 @@ def get_all_biometric_devices(session):
     return session.scalars(statement).all()
 
 
-def get_biometric_by_sn(session, sn):
-    if not sn:
-        return None
-    statement = select(BiometricDevice).where(BiometricDevice.sn == sn)
-    return session.scalars(statement).first()
-
-
-def get_biometric_by_ip(session, ip):
-    if not ip:
-        return None
-    statement = select(BiometricDevice).where(BiometricDevice.ip == ip)
-    return session.scalars(statement).first()
-
-
 def get_last_sync(session, biometric_id):
     device = session.get(BiometricDevice, biometric_id)
     return device.ultima_sincronizacion if device else None
@@ -63,47 +38,6 @@ def mark_biometric_synced(session, biometric_id, synced_at):
         raise ValueError(f"Biométrico no encontrado: {biometric_id}")
     device.ultima_sincronizacion = synced_at
     session.add(device)
-
-
-def get_all_employees(session):
-    statement = select(Employee).order_by(Employee.nombre)
-    return session.scalars(statement).all()
-
-
-def get_all_employees_dict(session):
-    return [
-        {
-            "id": employee.id_empleado,
-            "name": employee.nombre,
-            "email": employee.mail,
-        }
-        for employee in get_all_employees(session)
-    ]
-
-
-def create_or_update_biometric(session, device_data):
-    normalized = normalize_biometric_data(device_data)
-    if normalized["sn"] is None:
-        return None
-
-    device = get_biometric_by_sn(session, normalized["sn"])
-    if device is None and normalized["ip"]:
-        device = get_biometric_by_ip(session, normalized["ip"])
-
-    if device is None:
-        device = BiometricDevice(sn=normalized["sn"], ip=normalized["ip"] or "unknown")
-
-    if normalized["ip"]:
-        device.ip = normalized["ip"]
-    if normalized["modelo"]:
-        device.modelo = normalized["modelo"]
-    if normalized["usuario"]:
-        device.usuario = normalized["usuario"]
-    if normalized["contrasena"]:
-        device.contrasena = normalized["contrasena"]
-
-    session.add(device)
-    return device
 
 
 def create_or_update_employee(session, employee_data):
@@ -128,23 +62,6 @@ def create_or_update_employee(session, employee_data):
 
     session.add(employee)
     return employee
-
-
-def get_attendance_records_for_employee(session, employee_id, from_date, to_date):
-    from_datetime = datetime.strptime(from_date, "%Y-%m-%d")
-    to_datetime = datetime.strptime(to_date, "%Y-%m-%d")
-    to_datetime = to_datetime.replace(hour=23, minute=59, second=59)
-
-    statement = (
-        select(AttendanceRecord)
-        .where(
-            AttendanceRecord.id_empleado == employee_id,
-            AttendanceRecord.register_time >= from_datetime,
-            AttendanceRecord.register_time <= to_datetime,
-        )
-        .order_by(AttendanceRecord.register_time)
-    )
-    return session.scalars(statement).all()
 
 
 def bulk_insert_attendance_logs(session, employee_id, records, biometric_id=None):

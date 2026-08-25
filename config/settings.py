@@ -4,8 +4,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # API Biométrico
-API_URL = os.getenv("BIOMETRIC_API_URL", "http://192.168.10.2:80/api")
-API_PASSWORD = os.getenv("BIOMETRIC_PASSWORD")
 API_DEVICE_COOKIE = os.getenv("BIOMETRIC_DEVICE_COOKIE", "")
 API_HEADERS = {
     "Cookie": API_DEVICE_COOKIE,
@@ -29,6 +27,5 @@ SQLALCHEMY_ECHO = os.getenv("SQLALCHEMY_ECHO", "False").lower() in ("1", "true",
 # Configuración de Email
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
-EMAIL_RH = [email.strip() for email in os.getenv("EMAIL_RH", "").split(",") if email.strip()]
 SUPPORT_EMAILS = [email.strip() for email in os.getenv("SUPPORT_EMAILS", "").split(",") if email.strip()]
 INITIAL_SYNC_DAYS = int(os.getenv("INITIAL_SYNC_DAYS", "1"))
