@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 
 from sqlalchemy import select
@@ -91,7 +90,6 @@ def bulk_insert_attendance_logs(session, employee_id, records, biometric_id=None
                     or ""
                 ),
                 "id_biometrico": biometric_id,
-                "raw_payload": json.dumps(record, ensure_ascii=False),
             }
         )
 
@@ -118,7 +116,6 @@ def bulk_insert_attendance_logs(session, employee_id, records, biometric_id=None
             register_time=item["register_time"],
             tipo_registro=str(item["tipo_registro"]),
             id_biometrico=item["id_biometrico"],
-            raw_payload=item["raw_payload"],
         )
         session.add(attendance)
         existing_times.add(item["register_time"])

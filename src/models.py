@@ -41,7 +41,6 @@ class AttendanceRecord(Base):
     tipo_registro = Column(String(50), nullable=True)
     id_biometrico = Column(Integer, ForeignKey("biometricos.id_biometrico"), nullable=True)
     id_empleado = Column(Integer, ForeignKey("empleados.id_empleado"), nullable=False)
-    raw_payload = Column(String(500), nullable=True)
 
     empleado = relationship("Employee", back_populates="registros")
     biometrico = relationship("BiometricDevice", back_populates="registros")

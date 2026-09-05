@@ -24,7 +24,6 @@ def get_user_list(api_url, password, headers=None):
     """
     try:
         data = _post(api_url, password, headers or {}, {"cmd": "getuserlist", "stn": 1})
-
         if data.get("result"):
             logging.info(f"Obtenidos {data.get('count', 0)} usuarios desde la API")
             return data.get("record", [])
@@ -50,8 +49,13 @@ def get_device_info(ip, contrasena, headers=None):
     try:
         data = _post(api_url, contrasena, headers or {}, {"cmd": "reg"})
 
-        if data.get("result"):
+        if data.get("result") or data.get("sn"):
             record = data.get("record")
+            record =[{
+                'sn': data.get("sn"),
+                'curip': data.get('curip'),
+                'mac': data.get('mac')
+            }]
             if isinstance(record, list) and record:
                 record = record[0]
             if isinstance(record, dict):

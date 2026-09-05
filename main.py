@@ -31,6 +31,7 @@ def _date_string(value):
 
 def _sync_start(last_sync, now):
     if last_sync is None:
+        #Debe enviar todos los registros si no tiene ultima sincronización
         return now - timedelta(days=INITIAL_SYNC_DAYS)
     return last_sync
 
@@ -113,6 +114,7 @@ def run_sync(now=None, session_factory=SessionLocal):
                     api_url, device.contrasena, API_HEADERS, start, now,
                 )
                 mark_biometric_synced(session, device.id_biometrico, now)
+                break
             if not identified:
                 raise RuntimeError("No se pudo identificar ningún biométrico registrado")
             session.commit()
