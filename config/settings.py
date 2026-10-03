@@ -8,6 +8,7 @@ API_DEVICE_COOKIE = os.getenv("BIOMETRIC_DEVICE_COOKIE", "")
 API_HEADERS = {
     "Cookie": API_DEVICE_COOKIE,
 }
+DEFAULT_LOCAL_IP = "192.168.0.0"
 
 # Otros
 LOG_FILE = "logs/biometrico.log"

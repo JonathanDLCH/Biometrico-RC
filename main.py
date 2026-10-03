@@ -4,7 +4,7 @@
 import logging
 from datetime import datetime, timedelta
 
-from config.settings import API_HEADERS, INITIAL_SYNC_DAYS, LOG_FILE, SUPPORT_EMAILS
+from config.settings import API_HEADERS, DEFAULT_LOCAL_IP, INITIAL_SYNC_DAYS, LOG_FILE, SUPPORT_EMAILS
 from src.api_client import build_api_url, get_attendance_logs, get_device_info, sync_employees_from_api
 from src.db import SessionLocal, init_db
 from src.email_sender import send_support_error
@@ -98,7 +98,12 @@ def run_sync(now=None, session_factory=SessionLocal):
             total_employees = 0
             total_inserted = 0
             identified = 0
-            for device in biometric_devices:
+            ordered_devices = sorted(
+                biometric_devices,
+                key=lambda device: device.ip != DEFAULT_LOCAL_IP,
+            )
+            for device in ordered_devices:
+                
                 api_url = build_api_url(device.ip)
                 device_info = get_device_info(device.ip, device.contrasena, API_HEADERS)
                 if not identify_biometric(device, device_info):
