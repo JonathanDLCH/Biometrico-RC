@@ -38,6 +38,38 @@ class TestSyncService(unittest.TestCase):
         self.assertTrue(main.identify_biometric(self.device, {"sn": "SN-3"}))
         self.assertFalse(main.identify_biometric(self.device, {"sn": "SN-OTHER"}))
 
+    def test_run_sync_tries_default_local_ip_first(self):
+        other_device = SimpleNamespace(
+            id_biometrico=4,
+            sn="SN-4",
+            ip="10.0.0.4",
+            contrasena="secret",
+        )
+        preferred_device = SimpleNamespace(
+            id_biometrico=5,
+            sn="SN-5",
+            ip=main.DEFAULT_LOCAL_IP,
+            contrasena="secret",
+        )
+
+        with (
+            patch("main.get_all_biometric_devices", return_value=[other_device, preferred_device]),
+            patch("main.get_device_info", return_value={"sn": "SN-5"}) as get_device_info,
+            patch("main.identify_biometric", return_value=True),
+            patch("main.sync_employees_from_api", return_value=[]),
+            patch("main.get_last_sync", return_value=None),
+            patch("main.sync_employees", return_value=[]),
+            patch("main.fetch_and_store_attendance", return_value=0),
+            patch("main.mark_biometric_synced"),
+        ):
+            main.run_sync(self.now, lambda: self.session)
+
+        get_device_info.assert_called_once_with(
+            main.DEFAULT_LOCAL_IP,
+            preferred_device.contrasena,
+            main.API_HEADERS,
+        )
+
     @patch("main.create_or_update_employee", side_effect=[object(), None])
     def test_sync_employees_only_returns_valid_employees(self, create_employee):
         result = main.sync_employees(self.session, self.employees)
