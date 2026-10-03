@@ -1,8 +1,42 @@
-# Sistema de Gestión de Asistencias Biométricas
+# Consulta-service: gestión de asistencias biométricas
 
-Este proyecto automatiza la gestión de asistencias laborales usando un biométrico chino con API local.
+Aplicación Django para consultar biométricos y registros de asistencia existentes. Las pantallas son HTML funcional sin estilos añadidos.
 
-## Flujo del Programa
+## Aplicación web Django
+
+La aplicación ofrece inicio de sesión, consulta del estado y última sincronización de los biométricos, y consulta de registros por fecha, periodo y empleado. Las tablas `biometricos`, `empleados` y `registros` están mapeadas como no administradas por Django, por lo que las migraciones no las crean ni alteran.
+
+### Configuración
+
+Instala las dependencias y configura las variables de `.env.example` en el `.env` local existente. No reemplaces credenciales reales con los valores de ejemplo.
+
+```bash
+pip install -r requirements.txt
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+```
+
+Guarda la clave generada como `DJANGO_SECRET_KEY`. En desarrollo local, define también `DJANGO_DEBUG=true`; para producción usa `DJANGO_DEBUG=false` y configura `DJANGO_ALLOWED_HOSTS` con los dominios permitidos.
+
+### Inicialización y ejecución
+
+Después de verificar que `DATABASE_URL` apunta a la base correcta y contar con un respaldo, ejecuta las migraciones de Django. Estas crean las tablas de autenticación, sesión y administración; las tablas biométricas existentes permanecen intactas.
+
+```bash
+python manage.py check
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
+```
+
+La aplicación queda en `http://127.0.0.1:8000/`. El usuario inicial se crea con `createsuperuser` y posteriormente se autentica en la pantalla de login.
+
+Los reportes semanales/quincenales en Excel o PDF aún no forman parte de esta primera etapa.
+
+## Proceso de sincronización heredado
+
+Los scripts actuales de sincronización, procesamiento y correo se conservan porque siguen conectados entre sí y contienen lógica que podrá reutilizarse para los reportes futuros.
+
+## Flujo del proceso heredado
 
 1. **Obtener Registros**: Realiza peticiones HTTP a la API del biométrico.
 1.5 **Obtener Usuarios**: Si no existen usuarios se revisan los registros del biometrico.
@@ -10,7 +44,7 @@ Este proyecto automatiza la gestión de asistencias laborales usando un biométr
 3. **Generar Reportes**: Crea resúmenes en CSV y JSON.
 4. **Automatización**: (próximo paso) Envío automático de reportes por email.
 
-## Instalación
+## Instalación del proceso heredado
 
 1. Crear entorno virtual:
    ```bash
@@ -29,16 +63,15 @@ Este proyecto automatiza la gestión de asistencias laborales usando un biométr
    pip install -r requirements.txt
    ```
 
-## Configuración
+## Configuración del proceso heredado
 
-Editar `config/settings.py` para ajustar:
+Editar `config/settings.py` para ajustar únicamente las reglas de horarios:
 - Horarios de entrada/salida
 - Límites de retardo y horas extra
-- URL y credenciales del biométrico
 
-Actualizar `config/employees.json` con la lista de empleados activos.
+Configura URL, contraseña y cookie del biométrico, además de credenciales de correo, mediante las variables de `.env.example`. No agregues secretos a `config/settings.py`.
 
-## Uso
+## Ejecución del proceso heredado
 
 Ejecutar el programa principal:
 ```bash
@@ -53,7 +86,14 @@ Esto generará:
 
 ## Pruebas
 
-Ejecutar suite de pruebas unitarias:
+Las pruebas Django usan una base SQLite temporal y no migran la base MySQL configurada:
+
+```bash
+python manage.py test --settings=consulta_service.test_settings tests.test_django_auth tests.test_django_forms
+```
+
+Para las pruebas del proceso heredado:
+
 ```bash
 python -m unittest tests/test_api_client.py
 python -m unittest tests/test_data_processor.py

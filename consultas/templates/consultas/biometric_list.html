@@ -1,0 +1,34 @@
+{% extends "consultas/base.html" %}
+
+{% block title %}Biométricos{% endblock %}
+
+{% block content %}
+    <h1>Biométricos registrados</h1>
+    <p>{{ devices|length }} biométricos</p>
+    <table>
+        <thead>
+            <tr>
+                <th scope="col">Ubicación</th>
+                <th scope="col">Número de serie</th>
+                <th scope="col">Modelo</th>
+                <th scope="col">IP</th>
+                <th scope="col">Estado</th>
+                <th scope="col">Última sincronización</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for device in devices %}
+                <tr>
+                    <td>{{ device.ubicacion|default:"Sin ubicación" }}</td>
+                    <td>{{ device.sn }}</td>
+                    <td>{{ device.modelo }}</td>
+                    <td>{{ device.ip }}</td>
+                    <td>{% if device.estado %}Activo{% else %}Inactivo{% endif %}</td>
+                    <td>{{ device.ultima_sincronizacion|date:"Y-m-d H:i"|default:"Nunca" }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6">No hay biométricos registrados.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "consultas/base.html" %}
+
+{% block title %}Registros de asistencia{% endblock %}
+
+{% block content %}
+    <h1>Registros de asistencia</h1>
+    <form method="get">
+        {{ form.non_field_errors }}
+        <p>{{ form.start_date.label_tag }} {{ form.start_date }} {{ form.start_date.errors }}</p>
+        <p>{{ form.end_date.label_tag }} {{ form.end_date }} {{ form.end_date.errors }}</p>
+        <p>{{ form.employee.label_tag }} {{ form.employee }} {{ form.employee.errors }}</p>
+        <button type="submit">Consultar</button>
+        <a href="{% url 'registros' %}">Limpiar filtros</a>
+    </form>
+
+    <p>{{ total_records }} registros</p>
+    {% if not filters_requested %}<p>Mostrando todos los registros. Usa los filtros para limitar el periodo o empleado.</p>{% endif %}
+
+    <table>
+        <thead>
+            <tr>
+                <th scope="col">Fecha y hora</th>
+                <th scope="col">ID empleado</th>
+                <th scope="col">Empleado</th>
+                <th scope="col">Tipo</th>
+                <th scope="col">Biométrico</th>
+                <th scope="col">Ubicación</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for record in page_obj %}
+                <tr>
+                    <td>{{ record.register_time|date:"Y-m-d H:i:s" }}</td>
+                    <td>{{ record.empleado_id }}</td>
+                    <td>{{ record.empleado.nombre }}</td>
+                    <td>{{ record.tipo_registro|default:"Sin tipo" }}</td>
+                    <td>{{ record.biometrico.sn }}</td>
+                    <td>{{ record.biometrico.ubicacion|default:"Sin ubicación" }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6">No se encontraron registros.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <nav aria-label="Paginación">
+        {% if page_obj.has_previous %}
+            <a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a>
+        {% endif %}
+        <span>Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.next_page_number }}">Siguiente</a>
+        {% endif %}
+    </nav>
+{% endblock %}

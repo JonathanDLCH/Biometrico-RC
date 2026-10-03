@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Consulta de asistencias{% endblock %}</title>
+</head>
+<body>
+    <header>
+        <a href="{% url 'biometricos' %}">Consulta de asistencias</a>
+        {% if user.is_authenticated %}
+            <nav aria-label="Navegación principal">
+                <a href="{% url 'biometricos' %}">Biométricos</a>
+                <a href="{% url 'registros' %}">Registros</a>
+            </nav>
+            <span>Sesión: {{ user.get_username }}</span>
+            <form method="post" action="{% url 'logout' %}">
+                {% csrf_token %}
+                <button type="submit">Cerrar sesión</button>
+            </form>
+        {% endif %}
+    </header>
+    <main>
+        {% if messages %}
+            {% for message in messages %}<p>{{ message }}</p>{% endfor %}
+        {% endif %}
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>
