@@ -1,30 +1,64 @@
+{% load static %}
 <!doctype html>
 <html lang="es">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Consulta de asistencias{% endblock %}</title>
+    <meta name="description" content="Panel operativo de asistencia y recursos humanos de RealCity.">
+    <title>{% block title %}RealCity · Dashboard de asistencias{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'consultas/css/tokens.css' %}">
+    <link rel="stylesheet" href="{% static 'consultas/css/layout.css' %}">
+    <link rel="stylesheet" href="{% static 'consultas/css/components.css' %}">
+    <link rel="stylesheet" href="{% static 'consultas/css/print.css' %}" media="print">
+    {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <header>
-        <a href="{% url 'biometricos' %}">Consulta de asistencias</a>
-        {% if user.is_authenticated %}
-            <nav aria-label="Navegación principal">
-                <a href="{% url 'biometricos' %}">Biométricos</a>
-                <a href="{% url 'registros' %}">Registros</a>
-            </nav>
-            <span>Sesión: {{ user.get_username }}</span>
-            <form method="post" action="{% url 'logout' %}">
-                {% csrf_token %}
-                <button type="submit">Cerrar sesión</button>
-            </form>
-        {% endif %}
-    </header>
-    <main>
-        {% if messages %}
-            {% for message in messages %}<p>{{ message }}</p>{% endfor %}
-        {% endif %}
-        {% block content %}{% endblock %}
-    </main>
+    <div class="app-shell">
+        <header class="app-header">
+            <div class="app-header__inner">
+                <a class="brand" href="{% url 'biometricos' %}" aria-label="Ir al panel principal de RealCity">
+                    <span class="brand__mark" aria-hidden="true">RC</span>
+                    <span class="brand__text">
+                        <span class="brand__name">RealCity</span>
+                        <span class="brand__subtitle">Administración de condominios</span>
+                    </span>
+                </a>
+
+                {% if user.is_authenticated %}
+                    <nav class="main-nav" aria-label="Navegación principal">
+                        <a class="main-nav__link{% if request.resolver_match.url_name == 'biometricos' %} is-active{% endif %}" href="{% url 'biometricos' %}">Panel</a>
+                        <a class="main-nav__link{% if request.resolver_match.url_name == 'registros' %} is-active{% endif %}" href="{% url 'registros' %}">Registros</a>
+                    </nav>
+
+                    <div class="user-menu">
+                        <div class="user-menu__identity">
+                            <span class="user-menu__role">Usuario</span>
+                            <span class="user-menu__name">{{ user.get_full_name|default:user.get_username }}</span>
+                        </div>
+                        <form class="logout-form" method="post" action="{% url 'logout' %}">
+                            {% csrf_token %}
+                            <button class="logout-button" type="submit">Cerrar sesión</button>
+                        </form>
+                    </div>
+                {% endif %}
+            </div>
+        </header>
+
+        <main class="app-content">
+            {% if messages %}
+                <div aria-live="polite">
+                    {% for message in messages %}<p class="status-pill status-pill--warning">{{ message }}</p>{% endfor %}
+                </div>
+            {% endif %}
+            {% block content %}{% endblock %}
+        </main>
+
+        <footer class="app-footer">
+            <div class="app-footer__inner">
+                <span>RealCity · Gestión de asistencia</span>
+                <span>Panel operativo</span>
+            </div>
+        </footer>
+    </div>
 </body>
 </html>

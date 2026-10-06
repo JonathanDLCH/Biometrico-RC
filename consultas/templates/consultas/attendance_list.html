@@ -3,53 +3,87 @@
 {% block title %}Registros de asistencia{% endblock %}
 
 {% block content %}
-    <h1>Registros de asistencia</h1>
-    <form method="get">
-        {{ form.non_field_errors }}
-        <p>{{ form.start_date.label_tag }} {{ form.start_date }} {{ form.start_date.errors }}</p>
-        <p>{{ form.end_date.label_tag }} {{ form.end_date }} {{ form.end_date.errors }}</p>
-        <p>{{ form.employee.label_tag }} {{ form.employee }} {{ form.employee.errors }}</p>
-        <button type="submit">Consultar</button>
-        <a href="{% url 'registros' %}">Limpiar filtros</a>
-    </form>
+    <header class="page-header">
+        <div>
+            <p class="page-header__eyebrow">Registro operativo</p>
+            <h1 class="page-header__title">Registros de asistencia</h1>
+            <p class="page-header__description">Consulta el historial por periodo, empleado y dispositivo con una vista centrada en la información necesaria.</p>
+        </div>
+    </header>
 
-    <p>{{ total_records }} registros</p>
-    {% if not filters_requested %}<p>Mostrando todos los registros. Usa los filtros para limitar el periodo o empleado.</p>{% endif %}
+    <section class="panel" aria-labelledby="attendance-filters-title">
+        <header class="panel__header">
+            <div>
+                <h2 class="panel__title" id="attendance-filters-title">Filtros de consulta</h2>
+                <span class="panel__subtitle">{{ total_records }} registros disponibles</span>
+            </div>
+        </header>
+        <div class="panel__body">
+            <form method="get" class="form-panel" aria-label="Filtros de registros">
+                {{ form.non_field_errors }}
+                <div class="field">
+                    {{ form.start_date.label_tag }}
+                    {{ form.start_date }}
+                    {{ form.start_date.errors }}
+                </div>
+                <div class="field">
+                    {{ form.end_date.label_tag }}
+                    {{ form.end_date }}
+                    {{ form.end_date.errors }}
+                </div>
+                <div class="field">
+                    {{ form.employee.label_tag }}
+                    {{ form.employee }}
+                    {{ form.employee.errors }}
+                </div>
+                <div class="field filter-actions">
+                    <button class="button" type="submit">Aplicar filtros</button>
+                </div>
+                <div class="field filter-actions">
+                    <a class="button-secondary" href="{% url 'registros' %}">Limpiar</a>
+                </div>
+            </form>
+            {% if not filters_requested %}<p class="page-header__description" style="margin-top: 1rem;">Mostrando todos los registros. Usa los filtros para limitar el periodo o el empleado.</p>{% endif %}
+        </div>
+    </section>
 
-    <table>
-        <thead>
-            <tr>
-                <th scope="col">Fecha y hora</th>
-                <th scope="col">ID empleado</th>
-                <th scope="col">Empleado</th>
-                <th scope="col">Tipo</th>
-                <th scope="col">Biométrico</th>
-                <th scope="col">Ubicación</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for record in page_obj %}
-                <tr>
-                    <td>{{ record.register_time|date:"Y-m-d H:i:s" }}</td>
-                    <td>{{ record.empleado_id }}</td>
-                    <td>{{ record.empleado.nombre }}</td>
-                    <td>{{ record.tipo_registro|default:"Sin tipo" }}</td>
-                    <td>{{ record.biometrico.sn }}</td>
-                    <td>{{ record.biometrico.ubicacion|default:"Sin ubicación" }}</td>
-                </tr>
-            {% empty %}
-                <tr><td colspan="6">No se encontraron registros.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-    <nav aria-label="Paginación">
-        {% if page_obj.has_previous %}
-            <a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a>
-        {% endif %}
-        <span>Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
-        {% if page_obj.has_next %}
-            <a href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.next_page_number }}">Siguiente</a>
-        {% endif %}
-    </nav>
+    <section class="panel" style="margin-top: 1.25rem;">
+        <div class="panel__body">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Fecha y hora</th>
+                        <th scope="col">Empleado</th>
+                        <th scope="col">Tipo</th>
+                        <th scope="col">Biométrico</th>
+                        <th scope="col">Ubicación</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in page_obj %}
+                        <tr>
+                            <td>{{ record.register_time|date:"Y-m-d H:i:s" }}</td>
+                            <td><strong>{{ record.empleado.nombre }}</strong><br><span class="panel__subtitle">ID {{ record.empleado_id }}</span></td>
+                            <td>{{ record.tipo_registro|default:"Sin tipo" }}</td>
+                            <td>{{ record.biometrico.sn }}</td>
+                            <td>{{ record.biometrico.ubicacion|default:"Sin ubicación" }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="5" class="empty-state">No se encontraron registros.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <footer class="panel__footer">
+            <nav class="pagination" aria-label="Paginación de registros">
+                {% if page_obj.has_previous %}
+                    <a class="icon-link" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">Anterior</a>
+                {% endif %}
+                <span>Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                {% if page_obj.has_next %}
+                    <a class="icon-link" href="?{% if querystring %}{{ querystring }}&amp;{% endif %}page={{ page_obj.next_page_number }}">Siguiente</a>
+                {% endif %}
+            </nav>
+        </footer>
+    </section>
 {% endblock %}

@@ -1,0 +1,24 @@
+@media print {
+    .app-header,
+    .page-header__action,
+    .data-table th:last-child,
+    .data-table td:last-child,
+    .pagination,
+    .filter-actions {
+        display: none !important;
+    }
+
+    .app-content {
+        padding-top: 0;
+        width: 100%;
+    }
+
+    .panel {
+        box-shadow: none;
+        break-inside: avoid;
+    }
+
+    .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

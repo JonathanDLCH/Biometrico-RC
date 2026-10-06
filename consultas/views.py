@@ -5,13 +5,45 @@ from django.core.paginator import Paginator
 from django.shortcuts import render
 
 from .forms import AttendanceFilterForm
+from .metrics import calculate_employee_rankings
 from .models import AttendanceRecord, BiometricDevice
+from .models import Employee
 
 
 @login_required
 def biometric_list(request):
     devices = BiometricDevice.objects.all().order_by("id_biometrico")
-    return render(request, "consultas/biometric_list.html", {"devices": devices})
+    employees = Employee.objects.all().order_by("nombre", "id_empleado")
+    attendance_records = AttendanceRecord.objects.select_related("empleado")
+    rankings = calculate_employee_rankings(
+        [
+            {
+                "employee_id": record.empleado_id,
+                "employee_name": record.empleado.nombre,
+                "date": record.register_time.date(),
+                "register_time": record.register_time,
+            }
+            for record in attendance_records
+        ]
+    )
+
+    return render(
+        request,
+        "consultas/biometric_list.html",
+        {
+            "devices": devices,
+            "employees": employees,
+            "total_records": attendance_records.count(),
+            "top_workers": rankings[:3],
+            "delay_leaders": sorted(
+                rankings,
+                key=lambda item: (-item["delays"], -item["hours_worked"], item["employee_name"]),
+            )[:3],
+            "recent_syncs": devices.filter(ultima_sincronizacion__isnull=False).order_by(
+                "-ultima_sincronizacion"
+            )[:5],
+        },
+    )
 
 
 @login_required

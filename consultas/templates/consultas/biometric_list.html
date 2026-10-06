@@ -1,34 +1,146 @@
 {% extends "consultas/base.html" %}
 
-{% block title %}Biométricos{% endblock %}
+{% block title %}RealCity · Panel ejecutivo{% endblock %}
 
 {% block content %}
-    <h1>Biométricos registrados</h1>
-    <p>{{ devices|length }} biométricos</p>
-    <table>
-        <thead>
-            <tr>
-                <th scope="col">Ubicación</th>
-                <th scope="col">Número de serie</th>
-                <th scope="col">Modelo</th>
-                <th scope="col">IP</th>
-                <th scope="col">Estado</th>
-                <th scope="col">Última sincronización</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for device in devices %}
-                <tr>
-                    <td>{{ device.ubicacion|default:"Sin ubicación" }}</td>
-                    <td>{{ device.sn }}</td>
-                    <td>{{ device.modelo }}</td>
-                    <td>{{ device.ip }}</td>
-                    <td>{% if device.estado %}Activo{% else %}Inactivo{% endif %}</td>
-                    <td>{{ device.ultima_sincronizacion|date:"Y-m-d H:i"|default:"Nunca" }}</td>
-                </tr>
-            {% empty %}
-                <tr><td colspan="6">No hay biométricos registrados.</td></tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <section aria-labelledby="dashboard-title">
+        <header class="page-header">
+            <div>
+                <p class="page-header__eyebrow">Panel ejecutivo</p>
+                <h1 class="page-header__title" id="dashboard-title">Indicadores de asistencia</h1>
+                <p class="page-header__description">Monitorea la operación de los residentes, los registros de entrada y salida y las personas con mejor y peor puntualidad.</p>
+            </div>
+            <a class="button-secondary page-header__action" href="{% url 'registros' %}">Ver registros completos</a>
+        </header>
+
+        <section class="summary-grid" aria-label="Resumen general de asistencia">
+            <article class="summary-card">
+                <span class="summary-card__icon" aria-hidden="true">◉</span>
+                <div>
+                    <span class="summary-card__label">Biométricos activos</span>
+                    <span class="summary-card__value">{{ devices|length }}</span>
+                    <span class="summary-card__meta">Dispositivos registrados</span>
+                </div>
+            </article>
+            <article class="summary-card">
+                <span class="summary-card__icon" aria-hidden="true">👥</span>
+                <div>
+                    <span class="summary-card__label">Personal</span>
+                    <span class="summary-card__value">{{ employees|length }}</span>
+                    <span class="summary-card__meta">Empleados activos</span>
+                </div>
+            </article>
+            <article class="summary-card">
+                <span class="summary-card__icon" aria-hidden="true">🗓</span>
+                <div>
+                    <span class="summary-card__label">Registros</span>
+                    <span class="summary-card__value">{{ total_records|default:0 }}</span>
+                    <span class="summary-card__meta">Total disponible en el sistema</span>
+                </div>
+            </article>
+            <article class="summary-card">
+                <span class="summary-card__icon" aria-hidden="true">⏱</span>
+                <div>
+                    <span class="summary-card__label">Puntualidad</span>
+                    <span class="summary-card__value">{% if top_workers %}{{ top_workers.0.hours_worked|floatformat:2 }}h{% else %}0h{% endif %}</span>
+                    <span class="summary-card__meta">Máximo del personal destacado</span>
+                </div>
+            </article>
+        </section>
+    </section>
+
+    <section class="main-grid" aria-label="Rankings del personal">
+        <article class="panel">
+            <header class="panel__header">
+                <div>
+                    <h2 class="panel__title">Personal con más horas trabajadas</h2>
+                    <span class="panel__subtitle">Promedio total según los registros disponibles</span>
+                </div>
+            </header>
+            <div class="panel__body">
+                <div class="rankings">
+                    {% for worker in top_workers %}
+                        <div class="ranking-item">
+                            <span class="ranking-item__badge">#{{ forloop.counter }}</span>
+                            <span class="ranking-item__name" title="{{ worker.employee_name }}">{{ worker.employee_name }}</span>
+                            <span class="ranking-item__value">{{ worker.hours_worked|floatformat:2 }} h</span>
+                        </div>
+                    {% empty %}
+                        <p class="empty-state">No hay registros disponibles para calcular el ranking.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </article>
+
+        <article class="panel">
+            <header class="panel__header">
+                <div>
+                    <h2 class="panel__title">Personal con más retardos</h2>
+                    <span class="panel__subtitle">Empleados con llegadas fuera de la tolerancia</span>
+                </div>
+            </header>
+            <div class="panel__body">
+                <div class="rankings">
+                    {% for worker in delay_leaders %}
+                        <div class="ranking-item">
+                            <span class="ranking-item__badge">#{{ forloop.counter }}</span>
+                            <span class="ranking-item__name" title="{{ worker.employee_name }}">{{ worker.employee_name }}</span>
+                            <span class="ranking-item__value">{{ worker.delays }} retardos</span>
+                        </div>
+                    {% empty %}
+                        <p class="empty-state">No hay retrasos registrados.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </article>
+    </section>
+
+    <section class="panel" style="margin-top: 1.25rem;" aria-labelledby="devices-title">
+        <header class="panel__header">
+            <div>
+                <h2 class="panel__title" id="devices-title">Estado de los biométricos</h2>
+                <span class="panel__subtitle">Disponibilidad y última sincronización</span>
+            </div>
+        </header>
+        <div class="panel__body">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Ubicación</th>
+                        <th scope="col">Serie</th>
+                        <th scope="col">Modelo</th>
+                        <th scope="col">IP</th>
+                        <th scope="col">Sincronización</th>
+                        <th scope="col">Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for device in devices %}
+                        <tr>
+                            <td>{{ device.ubicacion|default:"Sin ubicación" }}</td>
+                            <td>{{ device.sn }}</td>
+                            <td>{{ device.modelo }}</td>
+                            <td>{{ device.ip }}</td>
+                            <td>{{ device.ultima_sincronizacion|date:"Y-m-d H:i"|default:"Nunca" }}</td>
+                            <td>
+                                {% if device.estado %}
+                                    <span class="status-badge status-badge--online">Activo</span>
+                                {% else %}
+                                    <span class="status-badge status-badge--offline">Inactivo</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr><td colspan="6" class="empty-state">No hay biométricos registrados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <footer class="panel__footer">
+            <div class="metric-line">
+                <span class="metric-line__label">Últimas sincronizaciones</span>
+                <span class="metric-line__value">{{ recent_syncs|length }} dispositivos recientes</span>
+            </div>
+        </footer>
+    </section>
 {% endblock %}
