@@ -2,6 +2,10 @@
 
 Aplicación Django para consultar biométricos y registros de asistencia existentes. Las pantallas son HTML funcional sin estilos añadidos.
 
+## Versiones de Python
+
+El proyecto es compatible con Python 3.10 a 3.14. pandas requiere una versión más reciente para Python 3.14; NumPy se instala según la versión de Python para conservar compatibilidad con Python 3.10.
+
 ## Aplicación web Django
 
 La aplicación ofrece inicio de sesión, consulta del estado y última sincronización de los biométricos, y consulta de registros por fecha, periodo y empleado. Las tablas `biometricos`, `empleados` y `registros` están mapeadas como no administradas por Django, por lo que las migraciones no las crean ni alteran.
