@@ -1,15 +1,19 @@
 {% extends "consultas/base.html" %}
+{% load static %}
 
 {% block title %}Iniciar sesión{% endblock %}
+
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'consultas/css/login.css' %}">
+{% endblock %}
 
 {% block content %}
     <div class="login-page">
         <main class="login-card" aria-labelledby="login-title">
             <div class="login-card__brand">
-                <span class="brand__mark" aria-hidden="true">RC</span>
                 <div>
-                    <span class="brand__name">RealCity</span>
-                    <span class="brand__subtitle">Sistema de asistencia</span>
+                    <span class="brand__name">Sistema de asistencia - Biometricos</span>
+                    <span class="brand__subtitle">Version 1.0</span>
                 </div>
             </div>
 

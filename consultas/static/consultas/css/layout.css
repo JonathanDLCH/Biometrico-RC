@@ -129,7 +129,7 @@
 }
 
 .app-content {
-    padding-block: clamp(1.5rem, 4vw, 3.5rem);
+    padding-block: clamp(0.5rem, 4vw, 1rem);
 }
 
 .page-header {
@@ -184,6 +184,15 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 1.25rem;
+}
+
+.brand__logo {
+    display: block;
+    width: 80px;
+    height: auto;
+    max-height: 40px;
+    object-fit: contain;
+    flex-shrink: 0;
 }
 
 @media (min-width: 960px) {

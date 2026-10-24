@@ -34,6 +34,15 @@ python manage.py runserver
 
 La aplicación queda en `http://127.0.0.1:8000/`. El usuario inicial se crea con `createsuperuser` y posteriormente se autentica en la pantalla de login.
 
+En macOS, puedes iniciar el servicio y abrir la pantalla de login con el script incluido:
+
+```bash
+chmod +x iniciar_consulta_service.sh
+./iniciar_consulta_service.sh
+```
+
+El script busca Python en `.venv`, `venv` o `env` y ejecuta `manage.py check`. La salida del servidor se descarta y no se guarda en archivos de log.
+
 Los reportes semanales/quincenales en Excel o PDF aún no forman parte de esta primera etapa.
 
 ## Proceso de sincronización heredado

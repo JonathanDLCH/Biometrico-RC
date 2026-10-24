@@ -17,11 +17,12 @@
         <header class="app-header">
             <div class="app-header__inner">
                 <a class="brand" href="{% url 'biometricos' %}" aria-label="Ir al panel principal de RealCity">
-                    <span class="brand__mark" aria-hidden="true">RC</span>
-                    <span class="brand__text">
-                        <span class="brand__name">RealCity</span>
-                        <span class="brand__subtitle">Administración de condominios</span>
-                    </span>
+                    <img
+                        class="brand__logo"
+                        src="{% static 'consultas/img/RCLogo.png' %}"
+                        alt="RealCity"
+                        width="80"
+                    >
                 </a>
 
                 {% if user.is_authenticated %}
