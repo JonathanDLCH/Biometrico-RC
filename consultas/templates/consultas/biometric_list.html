@@ -41,9 +41,9 @@
             <article class="summary-card">
                 <span class="summary-card__icon" aria-hidden="true">⏱</span>
                 <div>
-                    <span class="summary-card__label">Puntualidad</span>
-                    <span class="summary-card__value">{% if top_workers %}{{ top_workers.0.hours_worked|floatformat:2 }}h{% else %}0h{% endif %}</span>
-                    <span class="summary-card__meta">Máximo del personal destacado</span>
+                    <span class="summary-card__label">Hora promedio de entrada</span>
+                    <span class="summary-card__value">{% if average_entry_time %}{{ average_entry_time|time:"H:i" }}{% else %}--:--{% endif %}</span>
+                    <span class="summary-card__meta">Promedio de primera marcación diaria</span>
                 </div>
             </article>
         </section>
@@ -89,6 +89,28 @@
                         </div>
                     {% empty %}
                         <p class="empty-state">No hay retrasos registrados.</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </article>
+
+        <article class="panel">
+            <header class="panel__header">
+                <div>
+                    <h2 class="panel__title">Personal con menos registros</h2>
+                    <span class="panel__subtitle">Menor cantidad de registros históricos</span>
+                </div>
+            </header>
+            <div class="panel__body">
+                <div class="rankings">
+                    {% for worker in least_registered_employees %}
+                        <div class="ranking-item">
+                            <span class="ranking-item__badge">#{{ forloop.counter }}</span>
+                            <span class="ranking-item__name" title="{{ worker.employee_name }}">{{ worker.employee_name }}</span>
+                            <span class="ranking-item__value">{{ worker.record_count }} registros</span>
+                        </div>
+                    {% empty %}
+                        <p class="empty-state">No hay empleados activos disponibles.</p>
                     {% endfor %}
                 </div>
             </div>

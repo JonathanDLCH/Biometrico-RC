@@ -2,10 +2,89 @@ from datetime import date, datetime
 
 from django.test import SimpleTestCase
 
-from consultas.metrics import calculate_employee_rankings
+from consultas.metrics import (
+    calculate_average_entry_time,
+    calculate_employee_record_counts,
+    calculate_employee_rankings,
+)
 
 
 class DashboardMetricsTests(SimpleTestCase):
+    def test_ranks_active_employees_by_record_count_including_zero(self):
+        employees = [
+            {"employee_id": 1, "employee_name": "Ana López"},
+            {"employee_id": 2, "employee_name": "Luis Pérez"},
+            {"employee_id": 3, "employee_name": "Marta Ruiz"},
+        ]
+        records = [
+            {"employee_id": 1},
+            {"employee_id": 1},
+            {"employee_id": 2},
+            {"employee_id": 99},
+        ]
+
+        ranking = calculate_employee_record_counts(employees, records)
+
+        self.assertEqual(
+            ranking,
+            [
+                {"employee_id": 3, "employee_name": "Marta Ruiz", "record_count": 0},
+                {"employee_id": 2, "employee_name": "Luis Pérez", "record_count": 1},
+                {"employee_id": 1, "employee_name": "Ana López", "record_count": 2},
+            ],
+        )
+
+    def test_record_count_ranking_is_empty_without_active_employees(self):
+        self.assertEqual(calculate_employee_record_counts([], [{"employee_id": 1}]), [])
+
+    def test_calculates_average_of_first_daily_entries(self):
+        records = [
+            {
+                "employee_id": 1,
+                "employee_name": "Ana López",
+                "date": date(2026, 10, 1),
+                "register_time": datetime(2026, 10, 1, 10, 5),
+            },
+            {
+                "employee_id": 1,
+                "employee_name": "Ana López",
+                "date": date(2026, 10, 1),
+                "register_time": datetime(2026, 10, 1, 18, 10),
+            },
+            {
+                "employee_id": 1,
+                "employee_name": "Ana López",
+                "date": date(2026, 10, 2),
+                "register_time": datetime(2026, 10, 2, 9, 0),
+            },
+            {
+                "employee_id": 2,
+                "employee_name": "Luis Pérez",
+                "date": date(2026, 10, 1),
+                "register_time": datetime(2026, 10, 1, 8, 50),
+            },
+            {
+                "employee_id": 2,
+                "employee_name": "Luis Pérez",
+                "date": date(2026, 10, 1),
+                "register_time": datetime(2026, 10, 1, 17, 30),
+            },
+            {
+                "employee_id": 2,
+                "employee_name": "Luis Pérez",
+                "date": date(2026, 10, 2),
+                "register_time": datetime(2026, 10, 2, 9, 15),
+            },
+        ]
+
+        average_entry_time = calculate_average_entry_time(records)
+
+        self.assertEqual(average_entry_time.hour, 9)
+        self.assertEqual(average_entry_time.minute, 18)
+
+    def test_average_entry_time_is_none_without_records(self):
+        self.assertIsNone(calculate_average_entry_time([]))
+
     def test_calculates_hours_and_delays_for_each_employee(self):
         records = [
             {

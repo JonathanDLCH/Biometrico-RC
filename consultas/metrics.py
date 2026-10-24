@@ -1,5 +1,5 @@
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 
 ENTRY_TIME = datetime.strptime("09:00:00", "%H:%M:%S").time()
@@ -28,6 +28,50 @@ def _hours_worked_for_day(day_records):
     last_exit = max(day_records, key=lambda record: record["register_time"])
     duration = last_exit["register_time"] - first_entry["register_time"]
     return round(duration.total_seconds() / 3600, 2)
+
+
+def calculate_average_entry_time(records):
+    """Calcula la hora media de la primera marcación de cada empleado por día."""
+    first_entries = {}
+    for record in records:
+        key = (record["employee_id"], record["date"])
+        current_entry = first_entries.get(key)
+        if current_entry is None or record["register_time"] < current_entry:
+            first_entries[key] = record["register_time"]
+
+    if not first_entries:
+        return None
+
+    average_minutes = round(
+        sum(
+            entry.hour * 60 + entry.minute + entry.second / 60
+            for entry in first_entries.values()
+        )
+        / len(first_entries)
+    ) % (24 * 60)
+    return time(hour=average_minutes // 60, minute=average_minutes % 60)
+
+
+def calculate_employee_record_counts(employees, records):
+    """Ordena al personal activo por cantidad de registros, incluyendo quienes tienen cero."""
+    employee_counts = {
+        employee["employee_id"]: {
+            "employee_id": employee["employee_id"],
+            "employee_name": employee["employee_name"],
+            "record_count": 0,
+        }
+        for employee in employees
+    }
+
+    for record in records:
+        employee = employee_counts.get(record["employee_id"])
+        if employee is not None:
+            employee["record_count"] += 1
+
+    return sorted(
+        employee_counts.values(),
+        key=lambda employee: (employee["record_count"], employee["employee_name"]),
+    )
 
 
 def calculate_employee_rankings(records):

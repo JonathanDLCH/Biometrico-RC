@@ -8,7 +8,11 @@ from django.shortcuts import render
 from django.utils import timezone
 
 from .forms import AttendanceFilterForm
-from .metrics import calculate_employee_rankings
+from .metrics import (
+    calculate_average_entry_time,
+    calculate_employee_record_counts,
+    calculate_employee_rankings,
+)
 from .models import AttendanceRecord, BiometricDevice
 from .models import Employee
 
@@ -16,19 +20,26 @@ from .models import Employee
 @login_required
 def biometric_list(request):
     devices = BiometricDevice.objects.all().order_by("id_biometrico")
-    employees = Employee.objects.all().order_by("nombre", "id_empleado")
+    employees = Employee.objects.filter(estado=True).order_by("nombre", "id_empleado")
     attendance_records = AttendanceRecord.objects.select_related("empleado")
-    rankings = calculate_employee_rankings(
+    metric_records = [
+        {
+            "employee_id": record.empleado_id,
+            "employee_name": record.empleado.nombre,
+            "date": record.register_time.date(),
+            "register_time": record.register_time,
+        }
+        for record in attendance_records
+    ]
+    rankings = calculate_employee_rankings(metric_records)
+    average_entry_time = calculate_average_entry_time(metric_records)
+    least_registered_employees = calculate_employee_record_counts(
         [
-            {
-                "employee_id": record.empleado_id,
-                "employee_name": record.empleado.nombre,
-                "date": record.register_time.date(),
-                "register_time": record.register_time,
-            }
-            for record in attendance_records
-        ]
-    )
+            {"employee_id": employee.id_empleado, "employee_name": employee.nombre}
+            for employee in employees
+        ],
+        metric_records,
+    )[:3]
 
     return render(
         request,
@@ -37,6 +48,8 @@ def biometric_list(request):
             "devices": devices,
             "employees": employees,
             "total_records": attendance_records.count(),
+            "average_entry_time": average_entry_time,
+            "least_registered_employees": least_registered_employees,
             "top_workers": rankings[:3],
             "delay_leaders": sorted(
                 rankings,
