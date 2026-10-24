@@ -1,8 +1,11 @@
+import csv
 from datetime import datetime, time, timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.http import HttpResponse
 from django.shortcuts import render
+from django.utils import timezone
 
 from .forms import AttendanceFilterForm
 from .metrics import calculate_employee_rankings
@@ -46,8 +49,7 @@ def biometric_list(request):
     )
 
 
-@login_required
-def attendance_list(request):
+def _attendance_records_for_request(request):
     form = AttendanceFilterForm(request.GET or None)
     records = AttendanceRecord.objects.select_related("empleado", "biometrico")
     filter_keys = {"start_date", "end_date", "employee"}
@@ -71,6 +73,12 @@ def attendance_list(request):
         else:
             records = records.none()
 
+    return form, records, filters_requested
+
+
+@login_required
+def attendance_list(request):
+    form, records, filters_requested = _attendance_records_for_request(request)
     page_number = request.GET.get("page")
     page_obj = Paginator(records.order_by("-register_time", "-id_registro"), 100).get_page(
         page_number
@@ -89,3 +97,35 @@ def attendance_list(request):
             "filters_requested": filters_requested,
         },
     )
+
+
+def _safe_csv_text(value):
+    text = str(value or "")
+    if text.lstrip().startswith(("=", "+", "-", "@")):
+        return f"'{text}"
+    return text
+
+
+@login_required
+def export_attendance_csv(request):
+    _, records, _ = _attendance_records_for_request(request)
+    response = HttpResponse(content_type="text/csv; charset=utf-8")
+    response["Content-Disposition"] = 'attachment; filename="registros-asistencia.csv"'
+    response.write("\ufeff")
+
+    writer = csv.writer(response)
+    writer.writerow(["Fecha y hora", "ID Empleado", "Empleado", "Ubicación"])
+    for record in records.order_by("-register_time", "-id_registro").iterator():
+        timestamp = record.register_time
+        if timezone.is_aware(timestamp):
+            timestamp = timezone.localtime(timestamp)
+        writer.writerow(
+            [
+                timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+                record.empleado_id,
+                _safe_csv_text(record.empleado.nombre),
+                _safe_csv_text(record.biometrico.ubicacion or "Sin ubicación"),
+            ]
+        )
+
+    return response
